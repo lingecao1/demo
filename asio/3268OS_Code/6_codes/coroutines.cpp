@@ -1,3 +1,16 @@
+
+/* 
+*   simple connection to server:
+*    - logs in just with username (no password)
+*    - all connections are initiated by the client: client asks, server answers
+*    - server disconnects any client that hasn't pinged for 5 seconds
+*
+*    Possible requests:
+*    - gets a list of all connected clients
+*    - ping: the server answers either with "ping ok" or "ping client_list_changed"
+    thread pool model
+*/
+
 #ifdef WIN32
 #define _WIN32_WINNT 0x0501
 #include <stdio.h>
@@ -23,32 +36,31 @@ io_service service;
 
 
 
-/** simple connection to server:
-    - logs in just with username (no password)
-    - all connections are initiated by the client: client asks, server answers
-    - server disconnects any client that hasn't pinged for 5 seconds
-
-    Possible requests:
-    - gets a list of all connected clients
-    - ping: the server answers either with "ping ok" or "ping client_list_changed"
-*/
 class talk_to_svr : public boost::enable_shared_from_this<talk_to_svr>
                   , public coroutine, boost::noncopyable {
+
     typedef talk_to_svr self_type;
+
     talk_to_svr(const std::string & username) 
       : sock_(service), started_(false), username_(username), timer_(service) {}
+
     void start(ip::tcp::endpoint ep) {
         sock_.async_connect(ep, MEM_FN2(step,_1,0) );
     }
+
 public:
+
     typedef boost::system::error_code error_code;
     typedef boost::shared_ptr<talk_to_svr> ptr;
-
+    
+    // the only interface 
     static ptr start(ip::tcp::endpoint ep, const std::string & username) {
         ptr new_(new talk_to_svr(username));
         new_->start(ep); // start ourselves
         return new_;
     }
+    
+    // connection handler
     void step(const error_code & err = error_code(), size_t bytes = 0) {
         reenter(this) {
             for (;;) {
@@ -60,17 +72,23 @@ public:
                 yield async_write(sock_, write_buffer_, MEM_FN2(step,_1,_2) );
                 yield async_read_until( sock_, read_buffer_, "\n", MEM_FN2(step,_1,_2));
                 yield service.post( MEM_FN(on_answer_from_server));
-            }
+            }//for
         }
     }
 private:
+
     void on_answer_from_server() {
         std::istream in(&read_buffer_);
         std::string word; in >> word;
-        if ( word == "login") on_login();
-        else if ( word == "ping") on_ping();
-        else if ( word == "clients") on_clients();
-        else std::cerr << "invalid msg " << std::endl;
+        if ( word == "login")
+            on_login();
+        else if ( word == "ping")
+            on_ping();
+        else if ( word == "clients")
+            on_clients();
+        else
+            std::cerr << "invalid msg " << std::endl;
+
         read_buffer_.consume( read_buffer_.size());
         if ( write_buffer_.size() > 0)
             service.post( MEM_FN2(step,error_code(),0));
@@ -80,6 +98,7 @@ private:
         std::cout << username_ << " logged in" << std::endl;
         do_ask_clients();
     }
+
     void on_ping() {
         std::istream in(&read_buffer_);
         std::string answer; 
@@ -125,5 +144,10 @@ int main(int argc, char* argv[]) {
     talk_to_svr::start(ep, "Suzie");
     service.run();
 }
+
+
+
+
+
 
 
