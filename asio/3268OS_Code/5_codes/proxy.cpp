@@ -137,7 +137,7 @@ int main(int argc, char* argv[]) {
     ip::tcp::endpoint ep_c( ip::address::from_string("127.0.0.1"), 8001);
     ip::tcp::endpoint ep_s( ip::address::from_string("127.0.0.1"), 8002);
     proxy::start(ep_c, ep_s);
-    service.run();
+    service.run(); //
 }
 
 
