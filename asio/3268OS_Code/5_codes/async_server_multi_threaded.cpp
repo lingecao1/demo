@@ -29,7 +29,7 @@ io_service service; // gobal variable
 class talk_to_client;
 typedef boost::shared_ptr<talk_to_client> client_ptr;
 typedef std::vector<client_ptr> array;
-array clients;
+array clients;  // this vector will store all connection, namely session.
 boost::recursive_mutex clients_cs;
 
 #define MEM_FN(x)       boost::bind(&self_type::x, shared_from_this())
@@ -76,9 +76,11 @@ public:
             sock_.close();
         }
         ptr self = shared_from_this();
-        { boost::recursive_mutex::scoped_lock lk(clients_cs);
-        array::iterator it = std::find(clients.begin(), clients.end(), self);
-        clients.erase(it);
+        {
+            boost::recursive_mutex::scoped_lock lk(clients_cs);
+            // delete corrent session from vector. 
+            array::iterator it = std::find(clients.begin(), clients.end(), self);
+            clients.erase(it);
         }
         update_clients_changed();
     }
@@ -228,7 +230,7 @@ void update_clients_changed() {
 ip::tcp::acceptor acceptor(service, ip::tcp::endpoint(ip::tcp::v4(), 8001));
 
 void handle_accept(talk_to_client::ptr client, const boost::system::error_code & err) {
-    client->start(); // get ioto client object by this interface.
+    client->start(); // get into client object by this interface.
     talk_to_client::ptr new_client = talk_to_client::new_();
     acceptor.async_accept(new_client->sock(), boost::bind(handle_accept,new_client,_1));
 }
@@ -246,9 +248,12 @@ void start_listen(int thread_count) {
 
 
 int main(int argc, char* argv[]) {
+    // at server side, the following two rows can accept connection request.
     talk_to_client::ptr client = talk_to_client::new_();
     acceptor.async_accept(client->sock(), boost::bind(handle_accept,client,_1));
+    // 
     start_listen(100);
+    // 
     threads.join_all();
 }
 
