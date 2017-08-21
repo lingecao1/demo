@@ -8,6 +8,10 @@
     Possible client requests:
     - gets a list of all connected clients
     - ping: the server answers either with "ping ok" or "ping client_list_changed"
+
+    All async operation are posted by single-thread -- main thread
+    All async operation will be executed by thread_pool ---thread_groups
+    
 */
 
 #ifdef WIN32
