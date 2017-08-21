@@ -51,6 +51,7 @@ private:
     // private construnctoion 
     async_op() : started_(false) {}
 
+    // be called at add function.
     void start() {
         {
             boost::recursive_mutex::scoped_lock lk(cs_);
@@ -77,13 +78,13 @@ private:
             {
                 boost::recursive_mutex::scoped_lock lk(cs_);
                 if ( !ops_.empty()) {
-                    cur = ops_[0];
+                    cur = ops_[0]; // get every aysnc operation to handling.
                     ops_.erase( ops_.begin());
                 }
             }
             if ( cur.service) {
                 boost::system::error_code err = cur.op(); // bug???, how to pass into parameter
-                cur.service->post(boost::bind(cur.completion, err));
+                cur.service->post(boost::bind(cur.completion, err)); // post a callback function..
             }
         }
         self_.reset();
@@ -141,8 +142,8 @@ int main(int argc, char* argv[]) {
     // firstly, create op container.
     async_op::ptr shang=async_op::new_();
     // sencondly, op which be implemented by a funcion. add this async op.
-    shang->add(boost::bind(compute_file_checksum,fn),
-               boost::bind(on_checksum,fn,_1),service);
+    shang->add(boost::bind(compute_file_checksum,fn),// aysnc operation 
+               boost::bind(on_checksum,fn,_1),service); // callback function
 
     service.run();
 }
